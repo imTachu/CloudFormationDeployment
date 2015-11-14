@@ -2,7 +2,7 @@
   "AWSTemplateFormatVersion": "2010-09-09",
   "Description": "AWS CloudFormation Template to deploy MyBB app. By Lorena Salamanca Rojas.",
   "Parameters": {
-    "InstanceType": {
+    "EC2InstanceType": {
       "Description": "WebServer EC2 instance type",
       "Type": "String",
       "Default": "t1.micro",
@@ -140,7 +140,7 @@
       ],
       "ConstraintDescription": "must select a valid database instance type."
     },
-    "MultiAZ": {
+    "DBMultiAZ": {
       "Description": "Multi-AZ master database",
       "Type": "String",
       "Default": "false",
@@ -658,18 +658,7 @@
                   "Fn::Join": [
                     "\n",
                     [
-                      "<img src=\"",
-                      {
-                        "Fn::FindInMap": [
-                          "Region2Examples",
-                          {
-                            "Ref": "AWS::Region"
-                          },
-                          "Examples"
-                        ]
-                      },
-                      "/cloudformation_graphic.png\" alt=\"AWS CloudFormation Logo\"/>",
-                      "<h1>Congratulations, you have successfully launched the AWS CloudFormation sample.</h1>"
+                      "<h1>MyBB Architecture was correctly deployed.</h1>"
                     ]
                   ]
                 },
@@ -761,7 +750,7 @@
               "Fn::FindInMap": [
                 "AWSInstanceType2Arch",
                 {
-                  "Ref": "InstanceType"
+                  "Ref": "EC2InstanceType"
                 },
                 "Arch"
               ]
@@ -774,7 +763,7 @@
           }
         ],
         "InstanceType": {
-          "Ref": "InstanceType"
+          "Ref": "EC2InstanceType"
         },
         "UserData": {
           "Fn::Base64": {
@@ -1030,7 +1019,7 @@
           "Ref": "DBPassword"
         },
         "MultiAZ": {
-          "Ref": "MultiAZ"
+          "Ref": "DBMultiAZ"
         },
         "Tags": [
           {
@@ -1072,28 +1061,6 @@
       "Metadata": {
         "AWS::CloudFormation::Designer": {
           "id": "ac2fd194-dc80-4644-897b-6d0c3f0fb1ab"
-        }
-      }
-    },
-    "ReplicaDB": {
-      "Type": "AWS::RDS::DBInstance",
-      "Properties": {
-        "SourceDBInstanceIdentifier": {
-          "Ref": "MasterDB"
-        },
-        "DBInstanceClass": {
-          "Ref": "DBInstanceClass"
-        },
-        "Tags": [
-          {
-            "Key": "Name",
-            "Value": "Read Replica Database"
-          }
-        ]
-      },
-      "Metadata": {
-        "AWS::CloudFormation::Designer": {
-          "id": "c22fbf2d-2768-466a-89bf-52b6de38efc9"
         }
       }
     }
@@ -1291,21 +1258,6 @@
         ],
         "isrelatedto": [
           "265f9679-ab8e-46a8-9548-bbdfce7fe42b"
-        ]
-      },
-      "c22fbf2d-2768-466a-89bf-52b6de38efc9": {
-        "size": {
-          "width": 60,
-          "height": 60
-        },
-        "position": {
-          "x": 810,
-          "y": 90
-        },
-        "z": 1,
-        "embeds": [],
-        "isrelatedto": [
-          "ac2fd194-dc80-4644-897b-6d0c3f0fb1ab"
         ]
       },
       "c0ab621b-581c-4e28-a498-affd206561c1": {
