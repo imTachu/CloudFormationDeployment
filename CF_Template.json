@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "AWS CloudFormation Template to deploy MyBB app. By Lorena Salamanca Rojas.",
+  "Description": "AWS CloudFormation Template to deploy an AMI in an AutoScalingGroup. By Lorena Salamanca Rojas. V2.0",
   "Parameters": {
     "EC2InstanceType": {
       "Description": "WebServer EC2 instance type",
@@ -67,6 +67,11 @@
       "Type": "AWS::EC2::KeyPair::KeyName",
       "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
     },
+	"AMIId": {
+      "Description": "The AMI that will be used to create the Launch Configuration and therefore the ASG",
+      "Type": "AWS::EC2::Image::Id",
+      "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
+    },
     "SSHLocation": {
       "Description": "The IP address range that can be used to SSH to the EC2 instances",
       "Type": "String",
@@ -75,80 +80,6 @@
       "Default": "0.0.0.0/0",
       "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
       "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
-    },
-    "DBName": {
-      "Default": "MyDatabase",
-      "Description": "The database name",
-      "Type": "String",
-      "MinLength": "1",
-      "MaxLength": "64",
-      "AllowedPattern": "[a-zA-Z][a-zA-Z0-9]*",
-      "ConstraintDescription": "must begin with a letter and contain only alphanumeric characters."
-    },
-    "DBUser": {
-      "NoEcho": "true",
-      "Description": "The database admin account username",
-      "Type": "String",
-      "MinLength": "1",
-      "MaxLength": "16",
-      "AllowedPattern": "[a-zA-Z][a-zA-Z0-9]*",
-      "ConstraintDescription": "must begin with a letter and contain only alphanumeric characters."
-    },
-    "DBPassword": {
-      "NoEcho": "true",
-      "Description": "The database admin account password",
-      "Type": "String",
-      "MinLength": "1",
-      "MaxLength": "41",
-      "AllowedPattern": "[a-zA-Z0-9]+",
-      "ConstraintDescription": "must contain only alphanumeric characters."
-    },
-    "DBAllocatedStorage": {
-      "Default": "5",
-      "Description": "The size of the database (Gb)",
-      "Type": "Number",
-      "MinValue": "5",
-      "MaxValue": "1024",
-      "ConstraintDescription": "must be between 5 and 1024Gb."
-    },
-    "DBInstanceClass": {
-      "Description": "The database instance type",
-      "Type": "String",
-      "Default": "db.m1.small",
-      "AllowedValues": [
-        "db.t1.micro",
-        "db.m1.small",
-        "db.m1.medium",
-        "db.m1.large",
-        "db.m1.xlarge",
-        "db.m2.xlarge",
-        "db.m2.2xlarge",
-        "db.m2.4xlarge",
-        "db.m3.medium",
-        "db.m3.large",
-        "db.m3.xlarge",
-        "db.m3.2xlarge",
-        "db.r3.large",
-        "db.r3.xlarge",
-        "db.r3.2xlarge",
-        "db.r3.4xlarge",
-        "db.r3.8xlarge",
-        "db.m2.xlarge",
-        "db.m2.2xlarge",
-        "db.m2.4xlarge",
-        "db.cr1.8xlarge"
-      ],
-      "ConstraintDescription": "must select a valid database instance type."
-    },
-    "DBMultiAZ": {
-      "Description": "Multi-AZ master database",
-      "Type": "String",
-      "Default": "false",
-      "AllowedValues": [
-        "true",
-        "false"
-      ],
-      "ConstraintDescription": "must be true or false."
     }
   },
   "Conditions": {
@@ -609,153 +540,12 @@
     },
     "LaunchConfig": {
       "Type": "AWS::AutoScaling::LaunchConfiguration",
-      "Metadata": {
-        "Comment": "Install a simple application",
-        "AWS::CloudFormation::Init": {
-          "config": {
-            "packages": {
-              "yum": {
-                "httpd": [],
-                "php": [],
-                "php-mysql": []
-              }
-            },
-            "sources": {
-              "/var/www/html/mybb": "http://resources.mybb.com/downloads/mybb_1806.zip"
-            },
-            "commands": {
-              "aa_settle_location": {
-                "command": "mv /var/www/html/mybb/Upload/* /var/www/html/mybb/"
-              },
-              "ab_chmmod_settings": {
-                "command": "chmod 666 /var/www/html/mybb/inc/settings.php"
-              },
-              "ac_rename_config": {
-                "command": "mv /var/www/html/mybb/inc/config.default.php /var/www/html/mybb/inc/config.php"
-              },
-              "ad_chmmod_config": {
-                "command": "chmod 666 /var/www/html/mybb/inc/config.php"
-              },
-              "ae_chmmod_folder_cache": {
-                "command": "chmod 777 /var/www/html/mybb/cache"
-              },
-              "af_chmmod_folder_cache_themes": {
-                "command": "chmod 777 /var/www/html/mybb/cache/themes"
-              },
-              "ag_chmmod_folder_uploads": {
-                "command": "chmod 777 /var/www/html/mybb/uploads"
-              },
-              "ah_chmmod_folder_uploads_avatars": {
-                "command": "chmod 777 /var/www/html/mybb/uploads/avatars"
-              },
-              "ai_chmmod_folder_admin_backups": {
-                "command": "chmod 777 /var/www/html/mybb/admin/backups"
-              }
-            },
-            "files": {
-              "/var/www/html/index.html": {
-                "content": {
-                  "Fn::Join": [
-                    "\n",
-                    [
-                      "<h1>MyBB Architecture was correctly deployed.</h1>"
-                    ]
-                  ]
-                },
-                "mode": "000644",
-                "owner": "root",
-                "group": "root"
-              },
-              "/etc/cfn/cfn-hup.conf": {
-                "content": {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "[main]\n",
-                      "stack=",
-                      {
-                        "Ref": "AWS::StackId"
-                      },
-                      "\n",
-                      "region=",
-                      {
-                        "Ref": "AWS::Region"
-                      },
-                      "\n"
-                    ]
-                  ]
-                },
-                "mode": "000400",
-                "owner": "root",
-                "group": "root"
-              },
-              "/etc/cfn/hooks.d/cfn-auto-reloader.conf": {
-                "content": {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "[cfn-auto-reloader-hook]\n",
-                      "triggers=post.update\n",
-                      "path=Resources.LaunchConfig.Metadata.AWS::CloudFormation::Init\n",
-                      "action=/opt/aws/bin/cfn-init -v ",
-                      "         --stack ",
-                      {
-                        "Ref": "AWS::StackName"
-                      },
-                      "         --resource LaunchConfig ",
-                      "         --region ",
-                      {
-                        "Ref": "AWS::Region"
-                      },
-                      "\n",
-                      "runas=root\n"
-                    ]
-                  ]
-                }
-              }
-            },
-            "services": {
-              "sysvinit": {
-                "httpd": {
-                  "enabled": "true",
-                  "ensureRunning": "true"
-                },
-                "cfn-hup": {
-                  "enabled": "true",
-                  "ensureRunning": "true",
-                  "files": [
-                    "/etc/cfn/cfn-hup.conf",
-                    "/etc/cfn/hooks.d/cfn-auto-reloader.conf"
-                  ]
-                }
-              }
-            }
-          }
-        },
-        "AWS::CloudFormation::Designer": {
-          "id": "22356e39-a347-473f-b6fd-fae4b6b86598"
-        }
-      },
       "Properties": {
         "KeyName": {
           "Ref": "KeyName"
         },
         "ImageId": {
-          "Fn::FindInMap": [
-            "AWSRegionArch2AMI",
-            {
-              "Ref": "AWS::Region"
-            },
-            {
-              "Fn::FindInMap": [
-                "AWSInstanceType2Arch",
-                {
-                  "Ref": "EC2InstanceType"
-                },
-                "Arch"
-              ]
-            }
-          ]
+			"Ref": "AMIId"
         },
         "SecurityGroups": [
           {
@@ -904,12 +694,12 @@
         "Listeners": [
           {
             "LoadBalancerPort": "80",
-            "InstancePort": "80",
+            "InstancePort": "8080",
             "Protocol": "HTTP"
           }
         ],
         "HealthCheck": {
-          "Target": "HTTP:80/",
+          "Target": "HTTP:8080/",
           "HealthyThreshold": "3",
           "UnhealthyThreshold": "5",
           "Interval": "30",
@@ -951,116 +741,29 @@
                 "SourceSecurityGroup.GroupName"
               ]
             }
+          },
+		  {
+            "IpProtocol": "tcp",
+            "FromPort": "8080",
+            "ToPort": "8080",
+            "SourceSecurityGroupOwnerId": {
+              "Fn::GetAtt": [
+                "ElasticLoadBalancer",
+                "SourceSecurityGroup.OwnerAlias"
+              ]
+            },
+            "SourceSecurityGroupName": {
+              "Fn::GetAtt": [
+                "ElasticLoadBalancer",
+                "SourceSecurityGroup.GroupName"
+              ]
+            }
           }
         ]
       },
       "Metadata": {
         "AWS::CloudFormation::Designer": {
           "id": "1d7549ae-d409-4ce7-a96c-2065c844a256"
-        }
-      }
-    },
-    "DBEC2SecurityGroup": {
-      "Type": "AWS::EC2::SecurityGroup",
-      "Condition": "Is-EC2-VPC",
-      "Properties": {
-        "GroupDescription": "Open database for access",
-        "SecurityGroupIngress": [
-          {
-            "IpProtocol": "tcp",
-            "FromPort": "3306",
-            "ToPort": "3306",
-            "SourceSecurityGroupName": {
-              "Ref": "InstanceSecurityGroup"
-            }
-          }
-        ]
-      },
-      "Metadata": {
-        "AWS::CloudFormation::Designer": {
-          "id": "265f9679-ab8e-46a8-9548-bbdfce7fe42b"
-        }
-      }
-    },
-    "DBSecurityGroup": {
-      "Type": "AWS::RDS::DBSecurityGroup",
-      "Condition": "Is-EC2-Classic",
-      "Properties": {
-        "DBSecurityGroupIngress": {
-          "EC2SecurityGroupName": {
-            "Ref": "InstanceSecurityGroup"
-          }
-        },
-        "GroupDescription": "database access"
-      },
-      "Metadata": {
-        "AWS::CloudFormation::Designer": {
-          "id": "fb1f400c-f4a0-4d0f-b1c0-c733793817b1"
-        }
-      }
-    },
-    "MasterDB": {
-      "Type": "AWS::RDS::DBInstance",
-      "Properties": {
-        "DBName": {
-          "Ref": "DBName"
-        },
-        "AllocatedStorage": {
-          "Ref": "DBAllocatedStorage"
-        },
-        "DBInstanceClass": {
-          "Ref": "DBInstanceClass"
-        },
-        "Engine": "MySQL",
-        "MasterUsername": {
-          "Ref": "DBUser"
-        },
-        "MasterUserPassword": {
-          "Ref": "DBPassword"
-        },
-        "MultiAZ": {
-          "Ref": "DBMultiAZ"
-        },
-        "Tags": [
-          {
-            "Key": "Name",
-            "Value": "Master Database"
-          }
-        ],
-        "VPCSecurityGroups": {
-          "Fn::If": [
-            "Is-EC2-VPC",
-            [
-              {
-                "Fn::GetAtt": [
-                  "DBEC2SecurityGroup",
-                  "GroupId"
-                ]
-              }
-            ],
-            {
-              "Ref": "AWS::NoValue"
-            }
-          ]
-        },
-        "DBSecurityGroups": {
-          "Fn::If": [
-            "Is-EC2-Classic",
-            [
-              {
-                "Ref": "DBSecurityGroup"
-              }
-            ],
-            {
-              "Ref": "AWS::NoValue"
-            }
-          ]
-        }
-      },
-      "DeletionPolicy": "Snapshot",
-      "Metadata": {
-        "AWS::CloudFormation::Designer": {
-          "id": "ac2fd194-dc80-4644-897b-6d0c3f0fb1ab"
         }
       }
     }
