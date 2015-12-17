@@ -472,24 +472,6 @@
     }
   },
   "Resources": {
-    "NotificationTopic": {
-      "Type": "AWS::SNS::Topic",
-      "Properties": {
-        "Subscription": [
-          {
-            "Endpoint": {
-              "Ref": "OperatorEMail"
-            },
-            "Protocol": "email"
-          }
-        ]
-      },
-      "Metadata": {
-        "AWS::CloudFormation::Designer": {
-          "id": "c0ab621b-581c-4e28-a498-affd206561c1"
-        }
-      }
-    },
     "WebServerGroup": {
       "Type": "AWS::AutoScaling::AutoScalingGroup",
       "Properties": {
@@ -505,32 +487,7 @@
           {
             "Ref": "ElasticLoadBalancer"
           }
-        ],
-        "NotificationConfiguration": {
-          "TopicARN": {
-            "Ref": "NotificationTopic"
-          },
-          "NotificationTypes": [
-            "autoscaling:EC2_INSTANCE_LAUNCH",
-            "autoscaling:EC2_INSTANCE_LAUNCH_ERROR",
-            "autoscaling:EC2_INSTANCE_TERMINATE",
-            "autoscaling:EC2_INSTANCE_TERMINATE_ERROR"
-          ]
-        }
-      },
-      "CreationPolicy": {
-        "ResourceSignal": {
-          "Timeout": "PT15M",
-          "Count": "1"
-        }
-      },
-      "UpdatePolicy": {
-        "AutoScalingRollingUpdate": {
-          "MinInstancesInService": "1",
-          "MaxBatchSize": "1",
-          "PauseTime": "PT15M",
-          "WaitOnResourceSignals": "true"
-        }
+        ]
       },
       "Metadata": {
         "AWS::CloudFormation::Designer": {
@@ -540,6 +497,12 @@
     },
     "LaunchConfig": {
       "Type": "AWS::AutoScaling::LaunchConfiguration",
+	  "Metadata": {
+        "Comment": "Install Cartera",
+		"AWS::CloudFormation::Designer": {
+          "id": "22356e39-a347-473f-b6fd-fae4b6b86598"
+        }
+		},
       "Properties": {
         "KeyName": {
           "Ref": "KeyName"
@@ -587,100 +550,6 @@
               ]
             ]
           }
-        }
-      }
-    },
-    "WebServerScaleUpPolicy": {
-      "Type": "AWS::AutoScaling::ScalingPolicy",
-      "Properties": {
-        "AdjustmentType": "ChangeInCapacity",
-        "AutoScalingGroupName": {
-          "Ref": "WebServerGroup"
-        },
-        "Cooldown": "60",
-        "ScalingAdjustment": "1"
-      },
-      "Metadata": {
-        "AWS::CloudFormation::Designer": {
-          "id": "a0218ebf-4715-435e-92f0-b281d8ff0af6"
-        }
-      }
-    },
-    "WebServerScaleDownPolicy": {
-      "Type": "AWS::AutoScaling::ScalingPolicy",
-      "Properties": {
-        "AdjustmentType": "ChangeInCapacity",
-        "AutoScalingGroupName": {
-          "Ref": "WebServerGroup"
-        },
-        "Cooldown": "60",
-        "ScalingAdjustment": "-1"
-      },
-      "Metadata": {
-        "AWS::CloudFormation::Designer": {
-          "id": "012f304e-bf66-4bd2-8559-2bfb9c49b65f"
-        }
-      }
-    },
-    "CPUAlarmHigh": {
-      "Type": "AWS::CloudWatch::Alarm",
-      "Properties": {
-        "AlarmDescription": "Scale-up if CPU > 70% for 5 minutes",
-        "MetricName": "CPUUtilization",
-        "Namespace": "AWS/EC2",
-        "Statistic": "Average",
-        "Period": "300",
-        "EvaluationPeriods": "1",
-        "Threshold": "70",
-        "AlarmActions": [
-          {
-            "Ref": "WebServerScaleUpPolicy"
-          }
-        ],
-        "Dimensions": [
-          {
-            "Name": "AutoScalingGroupName",
-            "Value": {
-              "Ref": "WebServerGroup"
-            }
-          }
-        ],
-        "ComparisonOperator": "GreaterThanThreshold"
-      },
-      "Metadata": {
-        "AWS::CloudFormation::Designer": {
-          "id": "a2bbce4f-a6bf-4f19-818d-39616c26f8ed"
-        }
-      }
-    },
-    "CPUAlarmLow": {
-      "Type": "AWS::CloudWatch::Alarm",
-      "Properties": {
-        "AlarmDescription": "Scale-down if CPU < 40% for 5 minutes",
-        "MetricName": "CPUUtilization",
-        "Namespace": "AWS/EC2",
-        "Statistic": "Average",
-        "Period": "300",
-        "EvaluationPeriods": "1",
-        "Threshold": "40",
-        "AlarmActions": [
-          {
-            "Ref": "WebServerScaleDownPolicy"
-          }
-        ],
-        "Dimensions": [
-          {
-            "Name": "AutoScalingGroupName",
-            "Value": {
-              "Ref": "WebServerGroup"
-            }
-          }
-        ],
-        "ComparisonOperator": "LessThanThreshold"
-      },
-      "Metadata": {
-        "AWS::CloudFormation::Designer": {
-          "id": "c321f7d5-5ed5-47d7-826d-3815627c4df7"
         }
       }
     },
