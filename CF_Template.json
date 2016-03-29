@@ -538,10 +538,16 @@
               "Ref": "DrainingTimeout"
             }
         },
+        "LBCookieStickinessPolicy" : [ 
+          { 
+            "PolicyName" : "ELBForeverStickiness" 
+          } 
+        ],
         "Listeners": [
           {
             "LoadBalancerPort": "80",
-            "InstancePort": "8080",
+            "InstancePort": "8080", 
+            "PolicyNames" : [ "ELBForeverStickiness" ],
             "Protocol": "HTTP"
           }
         ],
