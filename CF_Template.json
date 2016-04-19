@@ -1,9 +1,9 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "AWS CloudFormation Template to deploy an AMI in an AutoScalingGroup. By Lorena Salamanca Rojas. V4.0",
+  "Description": "Template de CloudFormation que despliega Core Cartera sin ELB (Usa HAProxy).",
   "Parameters": {
     "EC2InstanceType": {
-      "Description": "WebServer EC2 instance type",
+      "Description": "Tipo de instancia EC2",
       "Type": "String",
       "Default": "t2.small",
       "AllowedValues": [
@@ -22,36 +22,29 @@
         "r3.4xlarge",
         "r3.8xlarge"
       ],
-      "ConstraintDescription": "must be a valid EC2 instance type."
+      "ConstraintDescription": "debe seleccionar un tipo de instancia EC2 valido."
     },
     "OperatorEMail": {
-      "Description": "E-mail address to notify if there are any scaling operations",
+      "Description": "Correo electronico al que se notificaran las operaciones del ASG",
       "Type": "String",
       "AllowedPattern": "([a-zA-Z0-9_\\-\\.]+)@((\\[[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.)|(([a-zA-Z0-9\\-]+\\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\\]?)",
-      "ConstraintDescription": "must be a valid email address."
+      "ConstraintDescription": "debe ser una direccion de correo electronico valida."
     },
     "KeyName": {
-      "Description": "The EC2 Key Pair to allow SSH access to the instances",
+      "Description": "El keypair que permitira acceso a las instancias EC2",
       "Type": "AWS::EC2::KeyPair::KeyName",
-      "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
+      "ConstraintDescription": "debe seleccionar un keypair que conozca."
     },
-	"AMIId": {
-      "Description": "The AMI that will be used to create the Launch Configuration and therefore the ASG",
+    "AMIId": {
+      "Description": "El id de la AMI que se usara para crear la Launch Configuration y posteriormente, el ASG.",
       "Type": "AWS::EC2::Image::Id",
-      "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
+      "ConstraintDescription": "debe contener el id de una AMI existente."
     },
-    "SSHLocation": {
-      "Description": "The IP address range that can be used to SSH to the EC2 instances",
+    "SNSTopicName": {
+      "Description": "Nombre del topico de SNS para notificar eventos del ASG",
       "Type": "String",
-      "MinLength": "9",
-      "MaxLength": "18",
-      "Default": "0.0.0.0/0",
-      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
-      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
-    },
-    "DrainingTimeout": {
-      "Description": "Timeout for ELB Connection Draining. Values between 1 and 3,600 seconds",
-      "Type": "Number"
+      "Default": "AutoscalingEventOcurrs",
+      "ConstraintDescription": "debe contener el nombre de un topico de SNS existente."
     }
   },
   "Conditions": {
@@ -444,6 +437,24 @@
     }
   },
   "Resources": {
+    "NotificationTopic": {
+      "Type": "AWS::SNS::Topic",
+      "Properties": {
+        "Subscription": [
+          {
+            "Endpoint": {
+              "Ref": "OperatorEMail"
+            },
+            "Protocol": "email"
+          }
+        ]
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "c0ab621b-581c-4e28-a498-affd206561c1"
+        }
+      }
+    },
     "WebServerGroup": {
       "Type": "AWS::AutoScaling::AutoScalingGroup",
       "Properties": {
@@ -455,11 +466,31 @@
         },
         "MinSize": "1",
         "MaxSize": "3",
-        "LoadBalancerNames": [
-          {
-            "Ref": "ElasticLoadBalancer"
-          }
-        ]
+        "NotificationConfiguration": {
+          "TopicARN": {
+            "Ref": "SNSTopicName"
+          },
+          "NotificationTypes": [
+            "autoscaling:EC2_INSTANCE_LAUNCH",
+            "autoscaling:EC2_INSTANCE_LAUNCH_ERROR",
+            "autoscaling:EC2_INSTANCE_TERMINATE",
+            "autoscaling:EC2_INSTANCE_TERMINATE_ERROR"
+          ]
+        }
+      },
+      "CreationPolicy": {
+        "ResourceSignal": {
+          "Timeout": "PT15M",
+          "Count": "1"
+        }
+      },
+      "UpdatePolicy": {
+        "AutoScalingRollingUpdate": {
+          "MinInstancesInService": "1",
+          "MaxBatchSize": "1",
+          "PauseTime": "PT15M",
+          "WaitOnResourceSignals": "true"
+        }
       },
       "Metadata": {
         "AWS::CloudFormation::Designer": {
@@ -468,149 +499,120 @@
       }
     },
     "LaunchConfig": {
-      "Type": "AWS::AutoScaling::LaunchConfiguration",
-	  "Metadata": {
-        "Comment": "Install Cartera",
-		"AWS::CloudFormation::Designer": {
-          "id": "22356e39-a347-473f-b6fd-fae4b6b86598"
-        }
-		},
-      "Properties": {
-        "KeyName": {
-          "Ref": "KeyName"
-        },
-        "ImageId": {
-			"Ref": "AMIId"
-        },
-        "SecurityGroups": [
-          {
-            "Ref": "InstanceSecurityGroup"
-          }
-        ],
-        "InstanceType": {
-          "Ref": "EC2InstanceType"
-        },
-        "UserData": {
-          "Fn::Base64": {
-            "Fn::Join": [
-              "",
-              [
-                "#!/bin/bash -xe\n",
-                "yum update -y aws-cfn-bootstrap\n",
-                "/opt/aws/bin/cfn-init -v ",
-                "         --stack ",
-                {
-                  "Ref": "AWS::StackName"
-                },
-                "         --resource LaunchConfig ",
-                "         --region ",
-                {
-                  "Ref": "AWS::Region"
-                },
-                "\n",
-                "/opt/aws/bin/cfn-signal -e $? ",
-                "         --stack ",
-                {
-                  "Ref": "AWS::StackName"
-                },
-                "         --resource WebServerGroup ",
-                "         --region ",
-                {
-                  "Ref": "AWS::Region"
-                },
-                "\n"
-              ]
-            ]
-          }
-        }
-      }
-    },
-    "ElasticLoadBalancer": {
-      "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
-      "Properties": {
-        "AvailabilityZones": {
-          "Fn::GetAZs": ""
-        },
-        "CrossZone": "true",
-        "ConnectionDrainingPolicy": {
-            "Enabled" : "true",
-            "Timeout" : {
-              "Ref": "DrainingTimeout"
+          "Type": "AWS::AutoScaling::LaunchConfiguration",
+    	  "Metadata": {
+            "Comment": "Install Cartera",
+    		"AWS::CloudFormation::Designer": {
+              "id": "22356e39-a347-473f-b6fd-fae4b6b86598"
             }
-        },
-        "LBCookieStickinessPolicy" : [ 
-          { 
-            "PolicyName" : "ELBForeverStickiness" 
-          } 
-        ],
-        "Listeners": [
-          {
-            "LoadBalancerPort": "80",
-            "InstancePort": "8080", 
-            "PolicyNames" : [ "ELBForeverStickiness" ],
-            "Protocol": "HTTP"
+    		},
+          "Properties": {
+            "KeyName": {
+              "Ref": "KeyName"
+            },
+            "ImageId": {
+    			"Ref": "AMIId"
+            },
+            "SecurityGroups": [
+              {
+                "Ref": "InstanceSecurityGroup"
+              }
+            ],
+            "InstanceType": {
+              "Ref": "EC2InstanceType"
+            },
+            "UserData": {
+              "Fn::Base64": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "#!/bin/bash -xe\n",
+                    "yum update -y aws-cfn-bootstrap\n",
+                    "/opt/aws/bin/cfn-init -v ",
+                    "         --stack ",
+                    {
+                      "Ref": "AWS::StackName"
+                    },
+                    "         --resource LaunchConfig ",
+                    "         --region ",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    "\n",
+                    "/opt/aws/bin/cfn-signal -e $? ",
+                    "         --stack ",
+                    {
+                      "Ref": "AWS::StackName"
+                    },
+                    "         --resource WebServerGroup ",
+                    "         --region ",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    "\n"
+                  ]
+                ]
+              }
+            }
           }
-        ],
-        "HealthCheck": {
-          "Target": "HTTP:8080/",
-          "HealthyThreshold": "3",
-          "UnhealthyThreshold": "5",
-          "Interval": "30",
-          "Timeout": "5"
-        }
+        },
+    "WebServerScaleUpPolicy": {
+      "Type": "AWS::AutoScaling::ScalingPolicy",
+      "Properties": {
+        "AdjustmentType": "ChangeInCapacity",
+        "AutoScalingGroupName": {
+          "Ref": "WebServerGroup"
+        },
+        "Cooldown": "120",
+        "ScalingAdjustment": "1"
       },
       "Metadata": {
         "AWS::CloudFormation::Designer": {
-          "id": "941a475f-d1fe-4fc0-b81f-9a0402e29b7d"
+          "id": "a0218ebf-4715-435e-92f0-b281d8ff0af6"
+        }
+      }
+    },
+    "CPUAlarmHigh": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "Scale-up if CPU > 60% for 5 minutes",
+        "MetricName": "CPUUtilization",
+        "Namespace": "AWS/EC2",
+        "Statistic": "Average",
+        "Period": "300",
+        "EvaluationPeriods": "1",
+        "Threshold": "60",
+        "AlarmActions": [
+          {
+            "Ref": "WebServerScaleUpPolicy"
+          }
+        ],
+        "Dimensions": [
+          {
+            "Name": "AutoScalingGroupName",
+            "Value": {
+              "Ref": "WebServerGroup"
+            }
+          }
+        ],
+        "ComparisonOperator": "GreaterThanThreshold"
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Designer": {
+          "id": "a2bbce4f-a6bf-4f19-818d-39616c26f8ed"
         }
       }
     },
     "InstanceSecurityGroup": {
       "Type": "AWS::EC2::SecurityGroup",
       "Properties": {
-        "GroupDescription": "Enable SSH access and HTTP from the load balancer only",
+        "GroupDescription": "Enable SSH access",
         "SecurityGroupIngress": [
           {
             "IpProtocol": "tcp",
             "FromPort": "22",
             "ToPort": "22",
-            "CidrIp": {
-              "Ref": "SSHLocation"
-            }
-          },
-          {
-            "IpProtocol": "tcp",
-            "FromPort": "80",
-            "ToPort": "80",
-            "SourceSecurityGroupOwnerId": {
-              "Fn::GetAtt": [
-                "ElasticLoadBalancer",
-                "SourceSecurityGroup.OwnerAlias"
-              ]
-            },
-            "SourceSecurityGroupName": {
-              "Fn::GetAtt": [
-                "ElasticLoadBalancer",
-                "SourceSecurityGroup.GroupName"
-              ]
-            }
-          },
-		  {
-            "IpProtocol": "tcp",
-            "FromPort": "8080",
-            "ToPort": "8080",
-            "SourceSecurityGroupOwnerId": {
-              "Fn::GetAtt": [
-                "ElasticLoadBalancer",
-                "SourceSecurityGroup.OwnerAlias"
-              ]
-            },
-            "SourceSecurityGroupName": {
-              "Fn::GetAtt": [
-                "ElasticLoadBalancer",
-                "SourceSecurityGroup.GroupName"
-              ]
-            }
+            "CidrIp": "0.0.0.0/0"
           }
         ]
       },
@@ -631,7 +633,6 @@
             "http://",
             {
               "Fn::GetAtt": [
-                "ElasticLoadBalancer",
                 "DNSName"
               ]
             }
